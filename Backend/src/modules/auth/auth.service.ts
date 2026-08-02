@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { genrateAccessToken,genrateRefreshToken  } from "../../utils/jwt.js";
+import { genrateAccessToken,genrateRefreshToken, verifyRefreshToken  } from "../../utils/jwt.js";
 import prisma from "../../config/db.js";
 import { AppError } from "../../utils/AppError.js";
 
@@ -34,6 +34,11 @@ export const loginService = async (email: string, password: string) => {
   
   const accessToken = genrateAccessToken(payload); 
   const refreshToken = genrateRefreshToken(payload); 
+
+  const refreshTokenStored  = await prisma.user.update({
+    where: { id: user.id },
+    data: { refreshToken }
+  });
 
   const data = {
     accessToken,
@@ -72,4 +77,71 @@ export const registerService = async (name: string, email: string, password: str
     data: { name, email, password: hashedPassword }
   });
   return { userId: { id: newUser.id , name: newUser.name } };
+}
+export const LogoutService = async (userId: string) =>{
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+
+  return { message: "Logout successful" };
+
+} 
+export const getMeService = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  return user;
+};
+
+export const refreshTokenService  = async (refreshToken: string) => {
+  const decoded = verifyRefreshToken(refreshToken);
+
+  if (!decoded) {
+    throw new AppError("Invalid refresh token", 401);
+  }
+  
+  const userId = decoded.userId;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+  if (user.refreshToken !== refreshToken) {
+    throw new AppError("Refresh token does not match", 401);
+  }
+
+  const payload = {
+    id : user.id,
+    role : user.role
+  };
+  const accessToken = genrateAccessToken(payload);
+
+  return {
+    accessToken,
+    user :{
+      id : user.id,
+      name : user.name,
+      role : user.role
+    },
+  };
+
 }

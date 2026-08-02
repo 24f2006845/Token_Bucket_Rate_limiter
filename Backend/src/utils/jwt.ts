@@ -24,7 +24,8 @@ export const verifyAccessToken = (token: string) => {
 
 export const verifyRefreshToken = (token: string) => {
     try {
-        return jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string);
+      const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string) as { userId: string };
+      return decoded
     } catch (error) {
         throw new Error("Invalid refresh token");
     }
