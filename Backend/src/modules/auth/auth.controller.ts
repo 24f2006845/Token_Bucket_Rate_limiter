@@ -1,14 +1,15 @@
 import type { NextFunction, Request, Response } from "express";
 import { loginService, registerService } from "./auth.service.js";
+import type { LoginInput, RegisterInput } from "./auth.validation.js";
 import type { LoginResponse,RegisterResponse } from "./auth.types.js";
-export const LoginController = async (req: Request, res: Response, next: NextFunction) => {
+
+export const LoginController = async (
+  req: Request<{}, {}, LoginInput>,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { email, password } = req.body;
-
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
 
     // Call the login service
     const data = await loginService(email, password);
@@ -20,7 +21,7 @@ export const LoginController = async (req: Request, res: Response, next: NextFun
     });
 
     // Return the tokens in the response
-    const response: LoginResponse = data
+    const response: LoginResponse = data;
     return res.status(200).json({
       success: true,
       data: {
@@ -34,21 +35,20 @@ export const LoginController = async (req: Request, res: Response, next: NextFun
   }
 };
 
-export const RegisterController = async (req: Request, res: Response, next: NextFunction) => {
+export const RegisterController = async (
+  req: Request<{}, {}, RegisterInput>,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { name, email, password } = req.body;
-
-    // Validate input
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email, and password are required" });
-    }
 
     // Call the register service
     const { userId } = await registerService(name, email, password);
 
     // Return the userId in the response
     const response: RegisterResponse = { userId };
-    return res.status(201).json({ success: true, data: response , message: "User registered successfully" });
+    return res.status(201).json({ success: true, data: response, message: "User registered successfully" });
   } catch (error) {
     next(error);
   }
