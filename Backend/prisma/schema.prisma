@@ -23,6 +23,28 @@ model User {
   password String
   role Role @default(USER)
   refreshToken String?
+  apiKeys ApiKey[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+model ApiKey {
+  id         String       @id @default(uuid())
+  name       String
+  keyHash    String       @unique
+  status     ApiKeyStatus @default(ACTIVE)
+  lastUsedAt DateTime?
+
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@map("api_keys")
 }
