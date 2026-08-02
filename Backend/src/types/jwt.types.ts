@@ -1,6 +1,6 @@
 import type { Role } from "../generated/prisma/client.js";
 interface JwtPayload {
-    userId : string;
+    id : string;
     role : Role;
 }
 

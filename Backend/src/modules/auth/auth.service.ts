@@ -1,29 +1,57 @@
 import bcrypt from "bcrypt";
 import { genrateAccessToken,genrateRefreshToken  } from "../../utils/jwt.js";
 import prisma from "../../config/db.js";
+import { AppError } from "../../utils/AppError.js";
 
 export const loginService = async (email: string, password: string) => {
-  // Fetch user from database (replace with your actual database logic)
-  const user = await prisma.user.findUnique({
+  
+  try{
+
+    const user = await prisma.user.findUnique({
     where: { email }
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found please register first", 404);
   }
+  if (!user.password) {
+    throw new AppError("User does not have a password set", 400);
+  }
+
+
+  const payload = {
+    id : user.id,
+    role : user.role
+  };
 
   // Compare the provided password with the hashed password in the database
   const isPasswordValid = await bcrypt.compare(password, user.password);
 
   if (!isPasswordValid) {
-    throw new Error("Invalid password");
+    throw new AppError("Invalid password", 400);
   }
 
-  // Generate access and refresh tokens (implement your token generation logic)
-  const accessToken = genrateAccessToken(user); // Implement this function
-  const refreshToken = genrateRefreshToken(user); // Implement this function
+  
+  const accessToken = genrateAccessToken(payload); 
+  const refreshToken = genrateRefreshToken(payload); 
 
-  return { accessToken, refreshToken };
+  const data = {
+    accessToken,
+    refreshToken,
+    user :{
+      id : user.id,
+      name : user.name,
+      role : user.role
+    },
+  };
+  return data;
+    
+  }catch(error){
+    if (error instanceof AppError) {
+      throw error; // Re-throw the AppError to be handled by the error handler middleware
+    }
+    throw new AppError("Internal server error", 500);
+  }
 };
 
 export const registerService = async (name: string, email: string, password: string) => {
@@ -33,7 +61,7 @@ export const registerService = async (name: string, email: string, password: str
   });
 
   if (existingUser) {
-    throw new Error("User already exists");
+    throw new AppError("User already exists", 409);
   }
 
   // Hash the password before storing it in the database
@@ -43,9 +71,5 @@ export const registerService = async (name: string, email: string, password: str
   const newUser = await prisma.user.create({
     data: { name, email, password: hashedPassword }
   });
-
-  // Generate access and refresh tokens (implement your token generation logic)
- // Implement this function
-
   return { userId: { id: newUser.id , name: newUser.name } };
 }

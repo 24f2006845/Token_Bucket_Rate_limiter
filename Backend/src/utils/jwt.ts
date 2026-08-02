@@ -3,13 +3,13 @@ import type { Role } from "../generated/prisma/browser.js";
 import type { JwtPayload } from "../types/jwt.types.js";
 
 export const genrateAccessToken = (JwtPayload: JwtPayload) => {
-  return jwt.sign({ userId: JwtPayload.userId, role: JwtPayload.role }, process.env.ACCESS_TOKEN_SECRET as string, {
+  return jwt.sign({ userId: JwtPayload.id, role: JwtPayload.role }, process.env.ACCESS_TOKEN_SECRET as string, {
     expiresIn: "15m",
   });
 };
 
 export const genrateRefreshToken = (JwtPayload: JwtPayload) => {
-  return jwt.sign({ userId: JwtPayload.userId }, process.env.REFRESH_TOKEN_SECRET as string, {
+  return jwt.sign({ userId: JwtPayload.id }, process.env.REFRESH_TOKEN_SECRET as string, {
     expiresIn: "7d",
   });
 };
