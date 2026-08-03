@@ -6,7 +6,6 @@ import { AppError } from "../../utils/AppError.js";
 export const loginService = async (email: string, password: string) => {
   
   try{
-
     const user = await prisma.user.findUnique({
     where: { email }
   });

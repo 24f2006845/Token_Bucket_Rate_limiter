@@ -1,7 +1,9 @@
 import express from "express";
 import authRoutes from "./modules/auth/auth.route.js";
 import apiKeyRoutes from "./modules/api_key/apiKey.route.js";
+import adminRoutes from "./modules/admin/admin.route.js";
 import cookieParser from "cookie-parser";
+
 import { errorHandler } from "./middlewares/error.middleware.js";
 
 const app = express();
@@ -13,6 +15,7 @@ app.get("/", (req, res) => {
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/apikey", apiKeyRoutes);
+app.use("/api/admin", adminRoutes);
 app.use(errorHandler);
 
 export default app;
