@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../../utils/AppError.js";
-import { getPolicyService, getPolicyByIdService } from "./policy.service.js";
-import { id } from "zod/locales";
+import { getPolicyService, getPolicyByIdService  } from "./policy.service.js";
+
 
 export const getAllPolicies = async (req: Request, res: Response, next: NextFunction) => {
     try{
@@ -19,9 +19,9 @@ export const getAllPolicies = async (req: Request, res: Response, next: NextFunc
 
 export const getPolicyById = async (req: Request, res: Response, next: NextFunction) => {
     try{
-        const policyId = req.body.id;
+        const {policyId} = req.params;
         const userId = req.user?.userId
-        const policy = await getPolicyByIdService(policyId, userId as string);
+        const policy = await getPolicyByIdService(policyId as string, userId as string);
         if (!policy) {
             throw new AppError("Policy not found", 404);
         }
@@ -33,3 +33,5 @@ export const getPolicyById = async (req: Request, res: Response, next: NextFunct
         return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 }
+
+
