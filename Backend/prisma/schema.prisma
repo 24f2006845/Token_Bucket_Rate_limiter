@@ -15,6 +15,12 @@ enum Status {
   ACTIVE
   SUSPENDED
 }
+enum RateLimitAlgorithm {
+  TOKEN_BUCKET
+  FIXED_WINDOW
+  SLIDING_WINDOW
+  LEAKY_BUCKET
+}
 
 enum Role {
   USER
@@ -47,9 +53,29 @@ model ApiKey {
 
   userId     String
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policies   Policy[]
 
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
   @@map("api_keys")
+}
+
+
+
+
+model Policy {
+  id          String @id @default(uuid())
+  name        String
+
+  algorithm   RateLimitAlgorithm @default(TOKEN_BUCKET)
+
+  capacity    Int
+  refillRate  Int
+  interval    Int
+
+  apiKeyId    String
+  apiKey      ApiKey @relation(fields: [apiKeyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
