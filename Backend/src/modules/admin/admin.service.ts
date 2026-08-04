@@ -1,11 +1,22 @@
 import prisma from "../../config/db.js";
 import { AppError } from "../../utils/AppError.js";
 export const getAllUsers = async () => {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany(
+        {
+            where: { role: "USER" },
+        }
+    );
     if (!users) {
         throw new AppError("No users found", 404);
     }
-    return users;
+    const response = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+    }));
+    return response;
 };
 
 export const getUserById = async (userId: string) => {
