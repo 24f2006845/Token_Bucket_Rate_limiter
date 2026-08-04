@@ -78,4 +78,6 @@ model Policy {
   apiKey      ApiKey @relation(fields: [apiKeyId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([apiKeyId, name])
 }

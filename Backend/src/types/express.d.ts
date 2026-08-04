@@ -7,6 +7,10 @@ import { Role } from "@prisma/client";
             userId: string;
             role: Role;
         };
+        apiKey?: {
+            id: string;
+            userId: string;
+        }
         }
     }
     }
