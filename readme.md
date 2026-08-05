@@ -1,8 +1,8 @@
 # Token Bucket Rate Limiter — Backend API
 
-An Express, TypeScript, PostgreSQL, and Prisma backend for managing rate-limit policies. It provides user authentication, API-key lifecycle management, an admin dashboard API, and policy synchronization for API-key-based rate-limit configurations.
+An Express, TypeScript, PostgreSQL, Prisma, and Redis-ready foundation for a rate-limiting platform. It provides authentication, API-key lifecycle management, an admin dashboard API, policy synchronization, and an in-progress limiter-check module.
 
-> **Current scope:** policy creation, storage, listing, and synchronization are implemented. Runtime token consumption/refill and a request-enforcement middleware have not been implemented yet.
+> **Current scope:** policy creation, storage, listing, and synchronization are implemented. The `/api/limiter/check` route and Redis configuration are present, but token consumption/refill and request blocking have not been implemented yet.
 
 ## Features
 
@@ -18,6 +18,8 @@ An Express, TypeScript, PostgreSQL, and Prisma backend for managing rate-limit p
 - Rate-limit policy management, scoped to API keys
 - API-key-authenticated policy synchronization for external clients
 - Policy schema supports token bucket, fixed window, sliding window, and leaky bucket algorithm types
+- Limiter-check route authenticated by `x-api-key` (currently performs policy lookup only)
+- Redis client configuration, ready for future bucket-state storage
 - PostgreSQL persistence through Prisma
 - Consistent JSON success and error responses
 
@@ -25,6 +27,7 @@ An Express, TypeScript, PostgreSQL, and Prisma backend for managing rate-limit p
 
 - Node.js, Express 5, TypeScript
 - PostgreSQL and Prisma 7
+- Redis (configured for limiter bucket state)
 - JSON Web Tokens (`jsonwebtoken`)
 - bcrypt, Zod, cookie-parser
 
@@ -34,10 +37,12 @@ An Express, TypeScript, PostgreSQL, and Prisma backend for managing rate-limit p
 Backend/
 ├── prisma/                 # Database schema and migrations
 ├── src/
+│   ├── config/             # PostgreSQL/Prisma and Redis configuration
 │   ├── modules/auth/       # Register, login, logout, profile, refresh token
 │   ├── modules/api_key/    # API-key generation, listing, and revocation
 │   ├── modules/admin/      # Admin user and API-key management endpoints
 │   ├── modules/policy/     # Policy listing, deletion, and synchronization
+│   ├── modules/limiter/    # Limiter check, validation, and token-bucket scaffold
 │   ├── middlewares/        # JWT, admin, API-key, validation, and error handling
 │   └── utils/              # JWT helpers and application errors
 └── server.ts               # Application entry point
@@ -52,6 +57,7 @@ flowchart TD
     App --> KeyRoutes[API-key routes\n/api/apikey]
     App --> AdminRoutes[Admin routes\n/api/admin]
     App --> PolicyRoutes[Policy routes\n/api/policy]
+    App --> LimiterRoutes[Limiter routes\n/api/limiter]
 
     AuthRoutes --> AuthValidation[Zod validation]
     AuthValidation --> AuthController[Auth controller]
@@ -71,19 +77,28 @@ flowchart TD
     SyncValidation --> PolicyController
     PolicyController --> PolicyService[Policy service]
 
+    LimiterRoutes --> LimiterKeyAuth[x-api-key middleware]
+    LimiterKeyAuth --> LimiterValidation[Limiter request validation]
+    LimiterValidation --> LimiterController[Limiter controller]
+    LimiterController --> LimiterService[Limiter service]
+
     AuthService --> Prisma[Prisma ORM]
     KeyService --> Prisma
     AdminService --> Prisma
     PolicyService --> Prisma
+    LimiterService --> Prisma
     Prisma --> Database[(PostgreSQL)]
+
+    LimiterService -. bucket-state planned .-> Redis[(Redis)]
 
     AuthController --> Errors[Global error handler]
     KeyController --> Errors
     AdminController --> Errors
     PolicyController --> Errors
+    LimiterController --> Errors
 ```
 
-The dashboard uses a JWT access token. External services synchronizing policies use the generated API key in the `x-api-key` header. All services persist through Prisma to PostgreSQL.
+The dashboard uses a JWT access token. External services synchronize policies and call the limiter route with a generated API key in the `x-api-key` header. Persistent entities are stored through Prisma in PostgreSQL; Redis is configured for future rate-limit bucket state.
 
 ## Complete backend request flow
 
@@ -96,6 +111,7 @@ flowchart TB
     API --> Keys[/api/apikey]
     API --> Admin[/api/admin]
     API --> Policies[/api/policy]
+    API --> Limiter[/api/limiter]
     API --> Root[GET slash returns Hello World]
 
     Auth --> Register[POST register]
@@ -132,16 +148,26 @@ flowchart TB
     APIKeyValidation --> PolicyController
     PolicyController --> PolicyService[Policy service]
 
+    Limiter --> LimiterCheck[POST check]
+    LimiterCheck --> LimiterKeyValidation[x-api-key hash and lookup]
+    LimiterKeyValidation --> LimiterRequestValidation[Limiter request validation]
+    LimiterRequestValidation --> LimiterController[Limiter controller]
+    LimiterController --> LimiterService[Limiter service]
+    LimiterService --> PolicyLookup[Find requested policy]
+
     AuthService --> ORM[Prisma]
     KeyService --> ORM
     AdminService --> ORM
     PolicyService --> ORM
+    PolicyLookup --> ORM
     ORM --> DB[(PostgreSQL)]
+    LimiterService -. future bucket state .-> Redis[(Redis)]
 
     AuthController -. errors .-> ErrorHandler[Global error handler]
     KeyController -. errors .-> ErrorHandler
     AdminController -. errors .-> ErrorHandler
     PolicyController -. errors .-> ErrorHandler
+    LimiterController -. errors .-> ErrorHandler
     ErrorHandler --> ErrorResponse[JSON error response]
 ```
 
@@ -154,6 +180,7 @@ flowchart TB
 | Admin dashboard | Bearer token with `ADMIN` role | Manage users and revoke API keys across users |
 | Dashboard policy management | Bearer access token | List or delete policies owned through the user’s API keys |
 | External policy synchronization | `x-api-key` header | Upsert policies for the matching API key |
+| Limiter check (in progress) | `x-api-key` header | Looks up the requested policy; it does not yet consume tokens or return `429` |
 
 ## Backend knowledge graph
 
@@ -173,6 +200,8 @@ flowchart LR
     Database[(PostgreSQL via Prisma)]
     Client[Frontend]
     External[External service]
+    Limiter[Limiter check module]
+    Redis[(Redis bucket state)]
 
     User --> UserFields
     User -->|owns 0..many| APIKey
@@ -188,6 +217,10 @@ flowchart LR
     APIKey -->|stored only as SHA-256| APIKeyFields
     PlainKey -->|hashed before storage| APIKey
     External -->|sends x-api-key| PlainKey
+    External -->|calls with a policy ID| Limiter
+    PlainKey -->|authenticates| Limiter
+    Limiter -->|currently looks up| Policy
+    Limiter -. future token state .-> Redis
 
     Admin -->|is a User with role ADMIN| User
     Admin -->|manages| User
@@ -206,6 +239,7 @@ flowchart LR
 - Access tokens include `userId` and `role`; refresh tokens include `userId` and are matched against the stored user refresh token.
 - `USER` is the default role. The admin routes require `ADMIN`.
 - A user status is `ACTIVE` or `SUSPENDED`; API-key status is `ACTIVE` or `REVOKED`.
+- The limiter module currently retrieves a policy record. Redis bucket state, token refill, token consumption, and `429 Too Many Requests` responses remain to be implemented.
 
 ## Run locally
 
@@ -222,11 +256,12 @@ Create `Backend/.env`:
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/token_bucket?schema=public"
 ACCESS_TOKEN_SECRET="replace-with-a-long-random-secret"
 REFRESH_TOKEN_SECRET="replace-with-a-different-long-random-secret"
+REDIS_URL="redis://localhost:6379"
 PORT=3000
 NODE_ENV=development
 ```
 
-`PORT` is required by the current database configuration. The server currently listens on port `3000`, so use `PORT=3000`.
+`PORT` and `REDIS_URL` are required when the server imports the limiter module. The server currently listens on port `3000`, so use `PORT=3000`.
 
 ### 2. Install packages and prepare the database
 
@@ -297,6 +332,7 @@ Authorization: Bearer <accessToken>
 | `GET` | `/policy/:id` | Bearer token | Get one policy |
 | `DELETE` | `/policy/delete/:id` | Bearer token | Delete one policy |
 | `POST` | `/policy/sync` | `x-api-key` | Create or update policies for an API key |
+| `POST` | `/limiter/check` | `x-api-key` | Limiter policy lookup (in progress) |
 
 \* See the integration note below: the present implementation obtains `userId` from the request body for these routes.
 
@@ -580,6 +616,33 @@ Header: `Authorization: Bearer <accessToken>`
 
 The policy ID is validated as a UUID. **Current implementation note:** the controller reads `req.params.policyId`, while the route parameter is named `id`. Update it to read `req.params.id` before using this endpoint.
 
+## Limiter module
+
+The limiter module is mounted at `/api/limiter`. It is the runtime entry point intended for a service that needs to check a policy before processing a request.
+
+### Limiter check
+
+`POST /api/limiter/check`
+
+```http
+x-api-key: <plain-text-api-key>
+Content-Type: application/json
+```
+
+Intended request body:
+
+```json
+{
+  "policy": "policy-uuid"
+}
+```
+
+The API-key middleware hashes the provided key and looks it up in the database. The limiter service then looks up the policy ID in PostgreSQL.
+
+> **Implementation status:** this route is a limiter scaffold, not a finished rate limiter. It does not currently verify that the selected policy belongs to the authenticated API key, use Redis, decrement tokens, refill tokens, or return `429 Too Many Requests`. The controller also needs to `await` the limiter service before returning its result.
+
+> **Validation note:** `LimiterCheckSchema` currently describes `{ "policy": "..." }`, while the shared validation middleware expects schemas that wrap values under `body`. Align the schema with the middleware before depending on this endpoint.
+
 ## Admin module
 
 The admin module is mounted at `/api/admin`. Every route is protected by `adminMiddleware`, which requires a valid access token whose JWT role is `ADMIN`.
@@ -776,15 +839,15 @@ export async function revokeAdminApiKey(adminAccessToken: string, apiKeyId: stri
 - The refresh cookie is `sameSite: "strict"`. For a frontend hosted on a different site, cookie settings must be deliberately adjusted for your deployment model.
 - Never expose generated API keys in browser logs, screenshots, analytics, or source control.
 
-## Suggested next step: token-bucket enforcement
+## Complete the token-bucket enforcement
 
-To turn this into a working rate limiter, add middleware that:
+The limiter route and Redis configuration are already present. To make the endpoint a working rate limiter:
 
-1. Reads an API key from a request header.
-2. Hashes it and verifies that the matching key is `ACTIVE`.
-3. Tracks remaining tokens and last-refill time (typically in Redis).
-4. Allows requests with available tokens and returns `429 Too Many Requests` when the bucket is empty.
-5. Sends useful rate-limit headers such as `X-RateLimit-Remaining` and `Retry-After`.
+1. Verify the API key is `ACTIVE` and that the requested policy belongs to that API key.
+2. Implement the token-bucket algorithm in `modules/limiter/tokenBucket.ts`.
+3. Store remaining tokens and the last-refill time in Redis with an atomic operation.
+4. Await the limiter service in the controller and return an allow/deny result.
+5. Return `429 Too Many Requests` when the bucket is empty, with `X-RateLimit-Remaining` and `Retry-After` headers.
 
 ## License
 
