@@ -1,17 +1,18 @@
 import { AppError } from "../../utils/AppError.js";
 import prisma from "../../config/db.js";
-import redis from "../../config/redis.js";
-import { TokenBucketService } from "./tokenBucket.js";
+import { consumeTokenAtomically } from "./tokenBucket.js";
 
 export const LimiterCheckService = async (apikeyId: string, policy: string) => {
     try{
-        const policydata = await prisma.policy.findUnique({
+        const policydata = await prisma.policy.findFirst({
             where: {
-                id: policy
+                id: policy,
+                apiKeyId: apikeyId,
             },
             select:{
                 id: true,
                 name: true,
+                algorithm: true,
                 capacity: true,
                 refillRate: true,
                 interval: true,
@@ -21,21 +22,17 @@ export const LimiterCheckService = async (apikeyId: string, policy: string) => {
         if(!policydata){
             throw new AppError("Policy not found", 404);
         }
-        let Bucket = await redis.get(`tokenBucket:${apikeyId}:${policydata.id}`);
-
-        if (!Bucket) {
-            const tokenBucket = {
-                tokens: policydata.capacity,
-                lastRefill: Math.floor(Date.now() / 1000),
-            };
-            await redis.set(`tokenBucket:${apikeyId}:${policydata.id}`, JSON.stringify(tokenBucket));
-            Bucket = JSON.stringify(tokenBucket);
-        } 
-        const processedBucket = TokenBucketService(JSON.parse(Bucket), policydata);
-        if (!processedBucket.allowed) {
-            throw new AppError(`Rate limit exceeded. Retry after ${processedBucket.retryAfter} seconds`, 429);
+        if (policydata.algorithm !== "TOKEN_BUCKET") {
+            throw new AppError("This policy algorithm is not implemented", 400);
         }
-        await redis.set(`tokenBucket:${apikeyId}:${policydata.id}`, JSON.stringify(processedBucket.bucket));
+
+        const processedBucket = await consumeTokenAtomically(
+            `tokenBucket:{${apikeyId}}:${policydata.id}`,
+            policydata,
+        );
+        if (!processedBucket.allowed) {
+            throw new AppError("Rate limit exceeded", 429, processedBucket.retryAfter);
+        }
         return processedBucket;
     } catch (error) {
         if (error instanceof AppError) {

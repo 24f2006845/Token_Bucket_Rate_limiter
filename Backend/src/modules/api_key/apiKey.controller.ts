@@ -1,9 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import { deleteApiKeyService, generateApiKeyService,getApiKeysService  } from "./apiKey.service.js";
+import { AppError } from "../../utils/AppError.js";
 
 export const generateApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.body.userId; 
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError("Authenticated user is missing", 401);
+    }
     const name = req.body.name;
     const apiKey = await generateApiKeyService(userId,name); 
 
@@ -15,7 +19,10 @@ export const generateApiKeyController = async (req: Request, res: Response, next
 
 export const getApiKeysController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.body.userId; 
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError("Authenticated user is missing", 401);
+    }
     const apiKeys = await getApiKeysService(userId);
 
     return res.status(200).json({ success: true, data: { apiKeys }, message: "API keys retrieved successfully" });
@@ -25,7 +32,10 @@ export const getApiKeysController = async (req: Request, res: Response, next: Ne
 };
 export const deleteApiKeyController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.body.userId; 
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError("Authenticated user is missing", 401);
+    }
     const apiKeyId = req.body.apiKeyId; 
     const result = await deleteApiKeyService(userId, apiKeyId);
 

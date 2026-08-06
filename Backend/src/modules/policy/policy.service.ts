@@ -79,9 +79,16 @@ export const validateApiKeyService = async (hashedApiKey: string) => {
     const apiKey = await prisma.apiKey.findUnique({
         where: {
             keyHash: hashedApiKey
-        }
+        },
+        include: {
+            user: {
+                select: { status: true },
+            },
+        },
     });
+    if (!apiKey || apiKey.status !== "ACTIVE" || apiKey.user.status !== "ACTIVE") {
+        return null;
+    }
     return apiKey;
 };
-
 

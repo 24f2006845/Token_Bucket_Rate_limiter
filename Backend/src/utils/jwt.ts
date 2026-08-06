@@ -3,21 +3,28 @@ import type { Role } from "../generated/prisma/browser.js";
 import type { JwtPayload } from "../types/jwt.types.js";
 import { AppError } from "./AppError.js";
 
+const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
+const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
+
+if (!accessTokenSecret || !refreshTokenSecret) {
+  throw new Error("ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must be configured");
+}
+
 export const genrateAccessToken = (JwtPayload: JwtPayload) => {
-  return jwt.sign({ userId: JwtPayload.id, role: JwtPayload.role }, process.env.ACCESS_TOKEN_SECRET as string, {
+  return jwt.sign({ userId: JwtPayload.id, role: JwtPayload.role }, accessTokenSecret, {
     expiresIn: "15m",
   });
 };
 
 export const genrateRefreshToken = (JwtPayload: JwtPayload) => {
-  return jwt.sign({ userId: JwtPayload.id }, process.env.REFRESH_TOKEN_SECRET as string, {
+  return jwt.sign({ userId: JwtPayload.id }, refreshTokenSecret, {
     expiresIn: "7d",
   });
 };
 
 export const verifyAccessToken = (token: string) => {
     try {
-        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string) as { userId: string, role: Role };
+        const decoded = jwt.verify(token, accessTokenSecret) as { userId: string, role: Role };
         return decoded
     } catch (error) {
         throw new AppError("Invalid access token", 401  );
@@ -26,9 +33,9 @@ export const verifyAccessToken = (token: string) => {
 
 export const verifyRefreshToken = (token: string) => {
     try {
-      const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string) as { userId: string };
+      const decoded = jwt.verify(token, refreshTokenSecret) as { userId: string };
       return decoded
     } catch (error) {
-        throw new Error("Invalid refresh token");
+      throw new AppError("Invalid refresh token", 401);
     }
-}   
+}

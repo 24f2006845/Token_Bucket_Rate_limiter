@@ -9,6 +9,9 @@ export const errorHandler = (
   next: NextFunction
 ) => {
   if (err instanceof AppError) {
+    if (err.retryAfter !== undefined) {
+      res.set("Retry-After", String(err.retryAfter));
+    }
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,

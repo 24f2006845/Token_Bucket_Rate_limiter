@@ -1,8 +1,8 @@
 # Token Bucket Rate Limiter — Backend API
 
-An Express, TypeScript, PostgreSQL, Prisma, and Redis-ready foundation for a rate-limiting platform. It provides authentication, API-key lifecycle management, an admin dashboard API, policy synchronization, and an in-progress limiter-check module.
+An Express, TypeScript, PostgreSQL, Prisma, and Redis-backed rate-limiting API. It provides authentication, API-key lifecycle management, an admin dashboard API, policy synchronization, and token-bucket enforcement.
 
-> **Current scope:** policy creation, storage, listing, and synchronization are implemented. The `/api/limiter/check` route and Redis configuration are present, but token consumption/refill and request blocking have not been implemented yet.
+> **Current scope:** `/api/limiter/check` atomically enforces `TOKEN_BUCKET` policies through Redis. Fixed-window, sliding-window, and leaky-bucket policies are not implemented and are rejected.
 
 ## Features
 
@@ -18,8 +18,7 @@ An Express, TypeScript, PostgreSQL, Prisma, and Redis-ready foundation for a rat
 - Rate-limit policy management, scoped to API keys
 - API-key-authenticated policy synchronization for external clients
 - Policy schema supports token bucket, fixed window, sliding window, and leaky bucket algorithm types
-- Limiter-check route authenticated by `x-api-key` (currently performs policy lookup only)
-- Redis client configuration, ready for future bucket-state storage
+- Atomic Redis-backed token-bucket enforcement with `429` and rate-limit headers
 - PostgreSQL persistence through Prisma
 - Consistent JSON success and error responses
 
@@ -42,7 +41,7 @@ Backend/
 │   ├── modules/api_key/    # API-key generation, listing, and revocation
 │   ├── modules/admin/      # Admin user and API-key management endpoints
 │   ├── modules/policy/     # Policy listing, deletion, and synchronization
-│   ├── modules/limiter/    # Limiter check, validation, and token-bucket scaffold
+│   ├── modules/limiter/    # Atomic Redis token-bucket enforcement
 │   ├── middlewares/        # JWT, admin, API-key, validation, and error handling
 │   └── utils/              # JWT helpers and application errors
 └── server.ts               # Application entry point
@@ -98,7 +97,7 @@ flowchart TD
     LimiterController --> Errors
 ```
 
-The dashboard uses a JWT access token. External services synchronize policies and call the limiter route with a generated API key in the `x-api-key` header. Persistent entities are stored through Prisma in PostgreSQL; Redis is configured for future rate-limit bucket state.
+The dashboard uses a JWT access token. External services synchronize policies and call the limiter route with a generated API key in the `x-api-key` header. Persistent entities are stored through Prisma in PostgreSQL; shared token-bucket state lives in Redis.
 
 ## Complete backend request flow
 
@@ -161,7 +160,7 @@ flowchart TB
     PolicyService --> ORM
     PolicyLookup --> ORM
     ORM --> DB[(PostgreSQL)]
-    LimiterService -. future bucket state .-> Redis[(Redis)]
+    LimiterService --> Redis[(Redis bucket state)]
 
     AuthController -. errors .-> ErrorHandler[Global error handler]
     KeyController -. errors .-> ErrorHandler
@@ -239,7 +238,7 @@ flowchart LR
 - Access tokens include `userId` and `role`; refresh tokens include `userId` and are matched against the stored user refresh token.
 - `USER` is the default role. The admin routes require `ADMIN`.
 - A user status is `ACTIVE` or `SUSPENDED`; API-key status is `ACTIVE` or `REVOKED`.
-- The limiter module currently retrieves a policy record. Redis bucket state, token refill, token consumption, and `429 Too Many Requests` responses remain to be implemented.
+- The limiter module enforces token-bucket policies with shared Redis state. Other algorithm types are intentionally rejected until implemented.
 
 ## Run locally
 
@@ -261,7 +260,7 @@ PORT=3000
 NODE_ENV=development
 ```
 
-`PORT` and `REDIS_URL` are required when the server imports the limiter module. The server currently listens on port `3000`, so use `PORT=3000`.
+`DATABASE_URL`, both JWT secrets, and `REDIS_URL` are required. `PORT` defaults to `3000` when omitted.
 
 ### 2. Install packages and prepare the database
 
@@ -317,8 +316,8 @@ Authorization: Bearer <accessToken>
 | --- | --- | --- | --- |
 | `POST` | `/auth/register` | No | Create an account |
 | `POST` | `/auth/login` | No | Sign in and receive an access token |
-| `POST` | `/auth/logout` | No* | Clear the refresh-token cookie |
-| `GET` | `/auth/me` | No* | Get a user profile |
+| `POST` | `/auth/logout` | Bearer token | Clear the refresh-token cookie and invalidate the session |
+| `GET` | `/auth/me` | Bearer token | Get the signed-in user's profile |
 | `GET` | `/auth/refresh-token` | Refresh-token cookie | Issue a new access token |
 | `POST` | `/apikey/generate` | Bearer token | Create an API key |
 | `GET` | `/apikey/getapiKey` | Bearer token | List the user’s API keys |
@@ -332,9 +331,7 @@ Authorization: Bearer <accessToken>
 | `GET` | `/policy/:id` | Bearer token | Get one policy |
 | `DELETE` | `/policy/delete/:id` | Bearer token | Delete one policy |
 | `POST` | `/policy/sync` | `x-api-key` | Create or update policies for an API key |
-| `POST` | `/limiter/check` | `x-api-key` | Limiter policy lookup (in progress) |
-
-\* See the integration note below: the present implementation obtains `userId` from the request body for these routes.
+| `POST` | `/limiter/check` | `x-api-key` | Enforce a token-bucket policy |
 
 ### Register
 
@@ -413,11 +410,7 @@ The browser must send the `refreshToken` cookie received at login.
 
 `GET /api/auth/me`
 
-Current request body:
-
-```json
-{ "userId": "user-uuid" }
-```
+Headers: `Authorization: Bearer <accessToken>`
 
 **200 response**
 
@@ -445,11 +438,10 @@ Authorization: Bearer <accessToken>
 Content-Type: application/json
 ```
 
-Current request body:
+Request body:
 
 ```json
 {
-  "userId": "user-uuid",
   "name": "Production frontend"
 }
 ```
@@ -472,11 +464,7 @@ Save the returned `apiKey` immediately. The database stores only its hash, and l
 
 Headers: `Authorization: Bearer <accessToken>`
 
-Current request body:
-
-```json
-{ "userId": "user-uuid" }
-```
+This endpoint does not require a request body.
 
 **200 response**
 
@@ -506,7 +494,6 @@ Headers: `Authorization: Bearer <accessToken>`
 
 ```json
 {
-  "userId": "user-uuid",
   "apiKeyId": "api-key-uuid"
 }
 ```
@@ -629,7 +616,7 @@ x-api-key: <plain-text-api-key>
 Content-Type: application/json
 ```
 
-Intended request body:
+Request body:
 
 ```json
 {
@@ -637,11 +624,7 @@ Intended request body:
 }
 ```
 
-The API-key middleware hashes the provided key and looks it up in the database. The limiter service then looks up the policy ID in PostgreSQL.
-
-> **Implementation status:** this route is a limiter scaffold, not a finished rate limiter. It does not currently verify that the selected policy belongs to the authenticated API key, use Redis, decrement tokens, refill tokens, or return `429 Too Many Requests`. The controller also needs to `await` the limiter service before returning its result.
-
-> **Validation note:** `LimiterCheckSchema` currently describes `{ "policy": "..." }`, while the shared validation middleware expects schemas that wrap values under `body`. Align the schema with the middleware before depending on this endpoint.
+The API-key middleware accepts only active keys belonging to active users. The limiter verifies policy ownership, atomically refills and consumes a token in Redis, and returns `429 Too Many Requests` with `Retry-After` when empty.
 
 ## Admin module
 
@@ -743,10 +726,10 @@ export async function login(email: string, password: string) {
   return response.data.data;
 }
 
-export async function generateApiKey(accessToken: string, userId: string, name: string) {
+export async function generateApiKey(accessToken: string, name: string) {
   const response = await api.post<ApiResponse<{ apiKey: string }>>(
     "/apikey/generate",
-    { userId, name },
+    { name },
     {
       headers: {
         Authorization: `Bearer ${accessToken}`
@@ -807,47 +790,32 @@ export async function getAdminUsers(adminAccessToken: string) {
   return response.data;
 }
 
-// The current backend needs the ID in both the path and JSON body.
 export async function toggleUserStatus(adminAccessToken: string, userId: string) {
   const response = await api.patch(
     `/admin/users/${userId}/status`,
-    { id: userId },
+    {},
     adminHeaders(adminAccessToken)
   );
   return response.data;
 }
 
-// The current backend needs the ID in both the path and DELETE body.
 export async function revokeAdminApiKey(adminAccessToken: string, apiKeyId: string) {
-  const response = await api.delete(`/admin/api-keys/${apiKeyId}`, {
-    ...adminHeaders(adminAccessToken),
-    data: { id: apiKeyId }
-  });
+  const response = await api.delete(`/admin/api-keys/${apiKeyId}`, adminHeaders(adminAccessToken));
   return response.data;
 }
 ```
 
 ### Important integration and security notes
 
-- The API-key middleware validates the bearer token, but the current controllers use `req.body.userId` rather than the authenticated `req.user.userId`. A client can therefore provide a different user ID. Before deploying, change protected controllers to use the user ID supplied by the verified JWT.
-- `/auth/me` and `/auth/logout` currently do not use the authentication middleware and accept `userId` in the request body. Protect them with `authMiddleware` and derive the ID from the JWT before production use.
-- A `GET` request body is not reliable in browsers, including when Axios uses its browser adapter. As written, `/auth/me` and `/apikey/getapiKey` cannot be called from a browser with their required `userId` body. The recommended fix is to protect both routes and read `req.user.userId`; alternatively, change them to `POST` until that refactor is made.
-- The same issue affects `GET /admin/users/:id` and `GET /admin/users/:id/api-keys`: their controllers ignore `req.params.id` and require `req.body.id`. Update them to use `req.params.id` before integrating these two admin-detail routes in a browser.
-- The current admin detail services return complete database records. That can expose password hashes, refresh tokens, and API-key hashes. Before deploying, return explicitly selected safe fields only (for example, ID, name, email, role, status, timestamps, and API-key metadata).
-- Policy synchronization validates only that the API key exists; it does not currently reject a key whose status is `REVOKED`. Add an `ACTIVE` status check to `validateApiKeyService` before treating a revoked key as invalid in production.
+- Protected routes derive user identity from the verified JWT, not request data. Admin path IDs are validated and used directly.
+- API key and policy lookups reject revoked keys and suspended users. Admin responses explicitly exclude password hashes, refresh-token hashes, and API-key hashes.
+- The refresh cookie is HTTP-only and `sameSite: "strict"`; cross-origin cookie use needs a deliberate deployment design.
 - CORS is not enabled in `src/app.ts`. A frontend on another origin (for example, `localhost:5173`) will need a configured `cors` middleware. If cookies are used cross-origin, configure an explicit allowed origin and `credentials: true`; do not use `*` with credentials.
-- The refresh cookie is `sameSite: "strict"`. For a frontend hosted on a different site, cookie settings must be deliberately adjusted for your deployment model.
 - Never expose generated API keys in browser logs, screenshots, analytics, or source control.
 
 ## Complete the token-bucket enforcement
 
-The limiter route and Redis configuration are already present. To make the endpoint a working rate limiter:
-
-1. Verify the API key is `ACTIVE` and that the requested policy belongs to that API key.
-2. Implement the token-bucket algorithm in `modules/limiter/tokenBucket.ts`.
-3. Store remaining tokens and the last-refill time in Redis with an atomic operation.
-4. Await the limiter service in the controller and return an allow/deny result.
-5. Return `429 Too Many Requests` when the bucket is empty, with `X-RateLimit-Remaining` and `Retry-After` headers.
+`TOKEN_BUCKET` enforcement is implemented with an atomic Redis Lua script. Before adding another algorithm, define its storage model, concurrency behavior, headers, and integration tests first.
 
 ## License
 

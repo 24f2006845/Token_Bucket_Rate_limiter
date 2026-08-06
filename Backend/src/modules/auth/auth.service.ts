@@ -2,6 +2,10 @@ import bcrypt from "bcrypt";
 import { genrateAccessToken,genrateRefreshToken, verifyRefreshToken  } from "../../utils/jwt.js";
 import prisma from "../../config/db.js";
 import { AppError } from "../../utils/AppError.js";
+import crypto from "crypto";
+
+const hashRefreshToken = (refreshToken: string) =>
+  crypto.createHash("sha256").update(refreshToken).digest("hex");
 
 export const loginService = async (email: string, password: string) => {
   
@@ -10,11 +14,8 @@ export const loginService = async (email: string, password: string) => {
     where: { email }
   });
 
-  if (!user) {
-    throw new AppError("User not found please register first", 404);
-  }
-  if (!user.password) {
-    throw new AppError("User does not have a password set", 400);
+  if (!user || user.status !== "ACTIVE" || !user.password) {
+    throw new AppError("Invalid email or password", 401);
   }
 
 
@@ -27,16 +28,16 @@ export const loginService = async (email: string, password: string) => {
   const isPasswordValid = await bcrypt.compare(password, user.password);
 
   if (!isPasswordValid) {
-    throw new AppError("Invalid password", 400);
+    throw new AppError("Invalid email or password", 401);
   }
 
   
   const accessToken = genrateAccessToken(payload); 
   const refreshToken = genrateRefreshToken(payload); 
 
-  const refreshTokenStored  = await prisma.user.update({
+  await prisma.user.update({
     where: { id: user.id },
-    data: { refreshToken }
+    data: { refreshToken: hashRefreshToken(refreshToken) }
   });
 
   const data = {
@@ -78,15 +79,10 @@ export const registerService = async (name: string, email: string, password: str
   return { userId: { id: newUser.id , name: newUser.name } };
 }
 export const LogoutService = async (userId: string) =>{
-  const user = await prisma.user.findUnique({
+  const user = await prisma.user.update({
     where: { id: userId }
+    , data: { refreshToken: null }
   });
-
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-
   return { message: "Logout successful" };
 
 } 
@@ -121,11 +117,11 @@ export const refreshTokenService  = async (refreshToken: string) => {
     where: { id: userId }
   });
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+  if (!user || user.status !== "ACTIVE") {
+    throw new AppError("Invalid refresh token", 401);
   }
-  if (user.refreshToken !== refreshToken) {
-    throw new AppError("Refresh token does not match", 401);
+  if (user.refreshToken !== hashRefreshToken(refreshToken)) {
+    throw new AppError("Invalid refresh token", 401);
   }
 
   const payload = {

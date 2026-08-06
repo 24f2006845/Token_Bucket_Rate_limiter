@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { loginService, registerService,LogoutService , getMeService,refreshTokenService} from "./auth.service.js";
 import type { LoginInput, RegisterInput } from "./auth.validation.js";
 import type { LoginResponse,RegisterResponse } from "./auth.types.js";
+import { AppError } from "../../utils/AppError.js";
 
 export const LoginController = async (
   req: Request<{}, {}, LoginInput>,
@@ -60,7 +61,10 @@ export const LogoutController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.body.userId; // Assuming you have the userId in the request body
+    const userId = req.user?.userId;
+    if (!userId) {
+      return next(new AppError("Authenticated user is missing", 401));
+    }
 
     // Call the logout service
     const data = await LogoutService(userId);
@@ -84,7 +88,10 @@ export const getMeController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.body.userId; 
+    const userId = req.user?.userId;
+    if (!userId) {
+      return next(new AppError("Authenticated user is missing", 401));
+    }
 
     // Call the getMe service
     const data = await getMeService(userId);

@@ -8,10 +8,17 @@ export const LimiterCheckController = async (req: Request, res: Response, next: 
         if (!policy){
             return next(new AppError("Policy not found", 404))
         }
-        const limiterCheckService = LimiterCheckService(apikeyId as string, policy)
+        if (!apikeyId) {
+            return next(new AppError("Invalid API key", 401));
+        }
+        const limiterCheckService = await LimiterCheckService(apikeyId, policy)
 
+        res.set({
+            "X-RateLimit-Limit": String(limiterCheckService.limit),
+            "X-RateLimit-Remaining": String(limiterCheckService.remainingTokens),
+        });
         const response  = {
-            status: "success",
+            success: true,
             message: "Rate limit check successful",
             data: limiterCheckService
         }

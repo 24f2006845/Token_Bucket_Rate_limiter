@@ -20,7 +20,7 @@ export const getAllPolicies = async (req: Request, res: Response, next: NextFunc
 
 export const getPolicyById = async (req: Request, res: Response, next: NextFunction) => {
     try{
-        const {policyId} = req.params;
+        const policyId = req.params.id;
         const userId = req.user?.userId
         const policy = await getPolicyByIdService(policyId as string, userId as string);
         if (!policy) {
