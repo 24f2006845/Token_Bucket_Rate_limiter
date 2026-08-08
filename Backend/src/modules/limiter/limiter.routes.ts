@@ -6,6 +6,6 @@ import { validate } from "../../middlewares/validate.middleware.js";
 
 const router = Router();
 
-router.post("/check",validateApiKeyMiddleware, validate(LimiterCheckSchema), LimiterCheckController);
+router.post("/check", validate(LimiterCheckSchema), validateApiKeyMiddleware, LimiterCheckController);
 
 export default router;
