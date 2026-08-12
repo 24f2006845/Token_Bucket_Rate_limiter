@@ -4,7 +4,7 @@ import { LimiterCheckService } from "./limiter.service.js";
 export const LimiterCheckController = async (req: Request, res: Response, next: NextFunction) => {
     try{
         const apikeyId = req.apiKey?.id
-        const {policy} = req.body
+        const { policy } = req.body
         if (!policy){
             return next(new AppError("Policy not found", 404))
         }

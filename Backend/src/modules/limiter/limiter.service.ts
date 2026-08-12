@@ -6,8 +6,8 @@ export const LimiterCheckService = async (apikeyId: string, policy: string) => {
     try{
         const policydata = await prisma.policy.findFirst({
             where: {
-                id: policy,
                 apiKeyId: apikeyId,
+                name: policy
             },
             select:{
                 id: true,
@@ -20,7 +20,7 @@ export const LimiterCheckService = async (apikeyId: string, policy: string) => {
         });
 
         if(!policydata){
-            throw new AppError("Policy not found", 404);
+            throw new AppError("Policy nott found", 404);
         }
         if (policydata.algorithm !== "TOKEN_BUCKET") {
             throw new AppError("This policy algorithm is not implemented", 400);
