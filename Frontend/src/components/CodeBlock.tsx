@@ -46,7 +46,7 @@ export default function CodeBlock({ code, language = 'bash', showLineNumbers = f
               {showLineNumbers && (
                 <span className="select-none text-text-muted/40 w-8 flex-shrink-0 text-right mr-4">{i + 1}</span>
               )}
-              <span className="text-white">{line}</span>
+              <span className="text-[var(--color-code-text)]">{line}</span>
             </div>
           ))}
         </code>

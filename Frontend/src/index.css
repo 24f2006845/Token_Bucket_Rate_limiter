@@ -4,11 +4,12 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* ── Core Soft White, Black, & Yellow Palette (Low White) ─ */
+  /* Light theme defaults */
   --color-bg: #F4F4F6;
   --color-surface: #FFFFFF;
   --color-surface-secondary: #ECECEF;
   --color-code-surface: #0D0D0D;
+  --color-code-text: #F9FAFB;
 
   --color-border: #E4E4E7;
   --color-border-strong: #D4D4D8;
@@ -19,6 +20,7 @@
 
   --color-hover: #F3F4F6;
   --color-white-hover: #111827;
+  --color-scrollbar-thumb: #A1A1AA;
 
   /* ── Yellow accents ────────────────────────────────────── */
   --color-yellow: #EAB308;
@@ -39,13 +41,37 @@
   to { opacity: 1; }
 }
 
+/* Dark theme overrides */
+html[data-theme='dark'] {
+  --color-bg: #000000;
+  --color-surface: #0A0A0A;
+  --color-surface-secondary: #171717;
+  --color-code-surface: #0D0D0D;
+  --color-code-text: #FFFFFF;
+
+  --color-border: #27272A;
+  --color-border-strong: #3F3F46;
+
+  --color-text: #FFFFFF;
+  --color-text-secondary: #D4D4D8;
+  --color-text-muted: #A1A1AA;
+
+  --color-hover: #111827;
+  --color-white-hover: #E5E7EB;
+  --color-scrollbar-thumb: #3F3F46;
+
+  --color-success-bg: #052E16;
+  --color-error-bg: #450A0A;
+  --color-warning-bg: #422006;
+}
+
 /* ── Base ──────────────────────────────────────────────────── */
 html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
-  background-color: #000000;
-  color: #FFFFFF;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.7;
@@ -54,12 +80,12 @@ body {
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #000000; }
-::-webkit-scrollbar-thumb { background: #333333; border-radius: 3px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-scrollbar-thumb); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #EAB308; }
 
 /* ── Selection ─────────────────────────────────────────────── */
-::selection { background: #EAB308; color: #000000; }
+::selection { background: #EAB308; color: #111827; }
 
 /* ── Inline Code Styling ────────────────────────────────────── */
 code.bg-code-surface {

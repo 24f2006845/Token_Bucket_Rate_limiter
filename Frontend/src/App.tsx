@@ -1,11 +1,11 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Moon, Sun } from 'lucide-react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -67,6 +67,22 @@ import ErrorsPage from './pages/docs/ErrorsPage';
 import ArchitecturePage from './pages/docs/ArchitecturePage';
 import TokenBucketPage from './pages/docs/TokenBucketPage';
 
+type ThemeMode = 'light' | 'dark';
+const THEME_STORAGE_KEY = 'rlaas-theme-mode';
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -95,10 +111,28 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeMode);
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
+
   return (
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
+        <button
+          type="button"
+          aria-label={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} mode`}
+          onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
+          className="fixed bottom-6 right-6 z-[70] flex items-center gap-2 px-3 py-2 rounded-full border border-border bg-surface text-text shadow-sm hover:border-border-strong hover:bg-hover transition-colors"
+        >
+          {themeMode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          <span className="hidden sm:inline text-xs font-medium">
+            {themeMode === 'dark' ? 'Light mode' : 'Dark mode'}
+          </span>
+        </button>
       </AuthProvider>
     </BrowserRouter>
   );
