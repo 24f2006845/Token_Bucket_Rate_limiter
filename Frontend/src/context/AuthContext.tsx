@@ -1,12 +1,22 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authService } from '../services/authService';
 import { clearAccessToken } from '../api/axios';
+import { User, ApiResponse, AuthData } from '../types';
 
-const AuthContext = createContext(null);
+export interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<ApiResponse<AuthData>>;
+  register: (name: string, email: string, password: string) => Promise<ApiResponse<AuthData>>;
+  logout: () => Promise<void>;
+  isAdmin: boolean;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const tryRefresh = useCallback(async () => {
     try {
@@ -25,13 +35,13 @@ export function AuthProvider({ children }) {
     tryRefresh();
   }, [tryRefresh]);
 
-  const login = async (email, password) => {
+  const login = async (email: string, password: string) => {
     const res = await authService.login(email, password);
     setUser(res.data.user);
     return res;
   };
 
-  const register = async (name, email, password) => {
+  const register = async (name: string, email: string, password: string) => {
     return authService.register(name, email, password);
   };
 

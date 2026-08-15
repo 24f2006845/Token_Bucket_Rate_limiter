@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
@@ -6,7 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
 import { Loader2 } from 'lucide-react';
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -18,10 +19,10 @@ function ProtectedRoute({ children }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  return children;
+  return <>{children}</>;
 }
 
-function AdminRoute({ children }) {
+function AdminRoute({ children }: { children: ReactNode }) {
   const { user, loading, isAdmin } = useAuth();
 
   if (loading) {
@@ -34,10 +35,10 @@ function AdminRoute({ children }) {
 
   if (!user) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
-  return children;
+  return <>{children}</>;
 }
 
-function GuestRoute({ children }) {
+function GuestRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -49,7 +50,7 @@ function GuestRoute({ children }) {
   }
 
   if (user) return <Navigate to="/dashboard" replace />;
-  return children;
+  return <>{children}</>;
 }
 
 import LandingPage from './pages/LandingPage';

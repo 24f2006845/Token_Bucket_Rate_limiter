@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 
-export default function TableOfContents({ items }) {
+export interface TocItem {
+  id: string;
+  label: string;
+}
+
+export interface TableOfContentsProps {
+  items: TocItem[];
+}
+
+export default function TableOfContents({ items }: TableOfContentsProps) {
   const [activeId, setActiveId] = useState('');
 
   useEffect(() => {

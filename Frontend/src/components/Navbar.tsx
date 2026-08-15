@@ -2,7 +2,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Menu, Search } from 'lucide-react';
 
-export default function Navbar({ onMenuClick, onSearchClick }) {
+export interface NavbarProps {
+  onMenuClick: () => void;
+  onSearchClick: () => void;
+}
+
+export default function Navbar({ onMenuClick, onSearchClick }: NavbarProps) {
   const { user } = useAuth();
   const { pathname } = useLocation();
 

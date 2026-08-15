@@ -18,9 +18,14 @@ const searchItems = [
   { label: 'Admin Panel', href: '/admin', section: 'App' },
 ];
 
-export default function SearchDialog({ open, onClose }) {
+export interface SearchDialogProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function SearchDialog({ open, onClose }: SearchDialogProps) {
   const [query, setQuery] = useState('');
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,7 +36,7 @@ export default function SearchDialog({ open, onClose }) {
   }, [open]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (open) onClose();
@@ -51,7 +56,7 @@ export default function SearchDialog({ open, onClose }) {
       )
     : searchItems;
 
-  const handleSelect = (href) => {
+  const handleSelect = (href: string) => {
     navigate(href);
     onClose();
   };

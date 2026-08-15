@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
-const crumbLabels = {
+const crumbLabels: Record<string, string> = {
   docs: 'Docs',
   'quick-start': 'Quick Start',
   installation: 'Installation',

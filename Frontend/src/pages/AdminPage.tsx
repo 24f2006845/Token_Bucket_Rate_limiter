@@ -1,19 +1,34 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdminUsers, useAdminApiKeys } from '../hooks/useAdmin';
 import { useToast } from '../hooks/useToast';
 import {
   Users, Key, Trash2, Loader2, RefreshCw, ChevronDown, ChevronUp,
-  User, LogOut, ArrowLeft, Clock, Ban, Check
+  User as UserIcon, LogOut, ArrowLeft, Clock, Ban, Check
 } from 'lucide-react';
 
-function Toast({ message, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+interface ToastProps {
+  message: string;
+  onClose: () => void;
+}
+
+function Toast({ message, onClose }: ToastProps) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
   return <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-md border border-border bg-surface text-text text-sm animate-fade-in">{message}</div>;
 }
 
-function ConfirmModal({ title, message, onConfirm, onCancel }) {
+interface ConfirmModalProps {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmModal({ title, message, onConfirm, onCancel }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <div className="border border-border rounded-md p-6 bg-surface max-w-md w-full animate-fade-in">
@@ -36,35 +51,68 @@ export default function AdminPage() {
   const { users, loading, fetchUsers, toggleStatus, activeUsers, suspendedUsers } = useAdminUsers();
   const { userKeys, loadingKeys, fetchUserKeys, revokeKey } = useAdminApiKeys();
 
-  const [expandedUser, setExpandedUser] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null);
-  const [processing, setProcessing] = useState(new Set());
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmModalProps | null>(null);
+  const [processing, setProcessing] = useState<Set<string>>(new Set());
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
-  const handleToggle = async (userId) => {
-    setProcessing((p) => new Set(p).add(userId));
-    try { await toggleStatus(userId); showToast('Status updated'); } catch (err) { showToast(err.message); }
-    setProcessing((p) => { const n = new Set(p); n.delete(userId); return n; });
+  const handleToggle = async (userId: string) => {
+    setProcessing((p) => {
+      const n = new Set(p);
+      n.add(userId);
+      return n;
+    });
+    try {
+      await toggleStatus(userId);
+      showToast('Status updated');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update user status');
+    }
+    setProcessing((p) => {
+      const n = new Set(p);
+      n.delete(userId);
+      return n;
+    });
     setConfirmAction(null);
   };
 
-  const handleExpand = async (userId) => {
-    if (expandedUser === userId) { setExpandedUser(null); return; }
+  const handleExpand = async (userId: string) => {
+    if (expandedUser === userId) {
+      setExpandedUser(null);
+      return;
+    }
     setExpandedUser(userId);
-    if (!userKeys[userId]) await fetchUserKeys(userId);
+    if (!userKeys[userId]) {
+      await fetchUserKeys(userId);
+    }
   };
 
-  const handleRevokeKey = async (keyId) => {
-    setProcessing((p) => new Set(p).add(keyId));
-    try { await revokeKey(keyId, expandedUser); showToast('Key revoked'); } catch (err) { showToast(err.message); }
-    setProcessing((p) => { const n = new Set(p); n.delete(keyId); return n; });
+  const handleRevokeKey = async (keyId: string) => {
+    setProcessing((p) => {
+      const n = new Set(p);
+      n.add(keyId);
+      return n;
+    });
+    try {
+      await revokeKey(keyId, expandedUser || undefined);
+      showToast('Key revoked');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to revoke key');
+    }
+    setProcessing((p) => {
+      const n = new Set(p);
+      n.delete(keyId);
+      return n;
+    });
     setConfirmAction(null);
   };
 
   return (
     <div className="min-h-screen bg-bg">
-      {toast && <Toast {...toast} onClose={hideToast} />}
+      {toast && <Toast message={toast.message} onClose={hideToast} />}
       {confirmAction && <ConfirmModal {...confirmAction} />}
 
       <nav className="fixed top-0 left-0 right-0 z-40 bg-bg border-b border-border h-16">
@@ -114,7 +162,7 @@ export default function AdminPage() {
                   <div className="px-4 py-3 flex items-center justify-between hover:bg-hover transition-colors cursor-pointer" onClick={() => handleExpand(u.id)}>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 border border-border rounded-md flex items-center justify-center bg-surface-secondary">
-                        <User className="w-3.5 h-3.5 text-text-muted" />
+                        <UserIcon className="w-3.5 h-3.5 text-text-muted" />
                       </div>
                       <div>
                         <p className="text-sm text-text">{u.email}</p>

@@ -11,7 +11,16 @@ const toc = [
   { id: 'ratelimit-fn', label: 'rateLimit()' },
 ];
 
-function EndpointBlock({ method, path, description, headers, body, response }) {
+interface EndpointBlockProps {
+  method: string;
+  path: string;
+  description: string;
+  headers?: string;
+  body?: string;
+  response?: string;
+}
+
+function EndpointBlock({ method, path, description, headers, body, response }: EndpointBlockProps) {
   return (
     <div className="border border-border rounded-md overflow-hidden my-6">
       <div className="px-4 py-3 bg-surface border-b border-border flex items-center gap-3">
@@ -45,7 +54,20 @@ function EndpointBlock({ method, path, description, headers, body, response }) {
   );
 }
 
-function SignatureBlock({ name, signature, params, returns }) {
+interface ParamItem {
+  name: string;
+  type: string;
+  desc: string;
+}
+
+interface SignatureBlockProps {
+  name: string;
+  signature: string;
+  params?: ParamItem[];
+  returns?: string;
+}
+
+function SignatureBlock({ name, signature, params, returns }: SignatureBlockProps) {
   return (
     <div className="border border-border rounded-md overflow-hidden my-6">
       <div className="px-4 py-3 bg-surface border-b border-border">

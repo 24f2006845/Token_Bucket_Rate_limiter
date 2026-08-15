@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -12,14 +12,14 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Login failed');
     } finally {
       setLoading(false);

@@ -1,7 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function PreviousNext({ prev, next }) {
+export interface PreviousNextLink {
+  href: string;
+  label: string;
+}
+
+export interface PreviousNextProps {
+  prev?: PreviousNextLink;
+  next?: PreviousNextLink;
+}
+
+export default function PreviousNext({ prev, next }: PreviousNextProps) {
   return (
     <div className="flex items-center justify-between mt-16 pt-8 border-t border-border">
       {prev ? (

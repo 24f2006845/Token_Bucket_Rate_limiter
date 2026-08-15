@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 
-export default function CodeBlock({ code, language = 'bash', showLineNumbers = false }) {
+export interface CodeBlockProps {
+  code: string;
+  language?: string;
+  showLineNumbers?: boolean;
+}
+
+export default function CodeBlock({ code, language = 'bash', showLineNumbers = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {

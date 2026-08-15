@@ -1,9 +1,14 @@
 import { useState, useCallback } from 'react';
 
-export function useToast() {
-  const [toast, setToast] = useState(null);
+export interface ToastState {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+}
 
-  const showToast = useCallback((message, type = 'success') => {
+export function useToast() {
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = useCallback((message: string, type: ToastState['type'] = 'success') => {
     setToast({ message, type });
   }, []);
 

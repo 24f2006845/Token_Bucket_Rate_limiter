@@ -1,22 +1,23 @@
 import api, { setAccessToken, clearAccessToken } from '../api/axios';
+import { ApiResponse, AuthData, User } from '../types';
 
 // ─── Auth Service ──────────────────────────────────────────────
 
 export const authService = {
-  async register(name, email, password) {
-    const { data } = await api.post('/auth/register', { name, email, password });
+  async register(name: string, email: string, password: string): Promise<ApiResponse<AuthData>> {
+    const { data } = await api.post<ApiResponse<AuthData>>('/auth/register', { name, email, password });
     return data;
   },
 
-  async login(email, password) {
-    const { data } = await api.post('/auth/login', { email, password });
+  async login(email: string, password: string): Promise<ApiResponse<AuthData>> {
+    const { data } = await api.post<ApiResponse<AuthData>>('/auth/login', { email, password });
     if (data.data?.accessToken) {
       setAccessToken(data.data.accessToken);
     }
     return data;
   },
 
-  async logout() {
+  async logout(): Promise<void> {
     try {
       await api.post('/auth/logout');
     } catch {
@@ -25,13 +26,13 @@ export const authService = {
     clearAccessToken();
   },
 
-  async getProfile() {
-    const { data } = await api.get('/auth/me');
+  async getProfile(): Promise<ApiResponse<User>> {
+    const { data } = await api.get<ApiResponse<User>>('/auth/me');
     return data;
   },
 
-  async refreshToken() {
-    const { data } = await api.get('/auth/refresh-token');
+  async refreshToken(): Promise<ApiResponse<{ accessToken: string }>> {
+    const { data } = await api.get<ApiResponse<{ accessToken: string }>>('/auth/refresh-token');
     if (data.data?.accessToken) {
       setAccessToken(data.data.accessToken);
     }

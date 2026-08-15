@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApiKeys, usePolicies } from '../hooks/useDashboard';
@@ -8,10 +8,20 @@ import {
   RefreshCw, Layers, ChevronDown, User, Clock, Settings
 } from 'lucide-react';
 
-function Toast({ message, type, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  onClose: () => void;
+}
+
+function Toast({ message, onClose }: ToastProps) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
   return (
-    <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-md border border-border bg-surface text-text text-sm animate-fade-in`}>
+    <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-md border border-border bg-surface text-text text-sm animate-fade-in">
       {message}
     </div>
   );
@@ -26,47 +36,64 @@ export default function DashboardPage() {
   const { policies, fetchPolicies, deletePolicy, loading: policiesLoading } = usePolicies();
 
   const [newKeyName, setNewKeyName] = useState('');
-  const [generatedKey, setGeneratedKey] = useState(null);
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [tab, setTab] = useState('keys');
 
-  useEffect(() => { fetchKeys(); fetchPolicies(); }, []);
+  useEffect(() => {
+    fetchKeys();
+    fetchPolicies();
+  }, [fetchKeys, fetchPolicies]);
 
-  const handleGenerate = async (e) => {
+  const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newKeyName.trim()) return;
     setGenerating(true);
     try {
       const key = await generateKey(newKeyName.trim());
-      setGeneratedKey(key);
+      setGeneratedKey(key.key || null);
       setNewKeyName('');
       setShowKeyModal(true);
       showToast('API key generated');
-    } catch (err) {
+    } catch (err: any) {
       showToast(err.response?.data?.message || err.message, 'error');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleRevoke = async (id) => {
-    try { await revokeKey(id); showToast('Key revoked'); } catch (err) { showToast(err.message, 'error'); }
+  const handleRevoke = async (id: string) => {
+    try {
+      await revokeKey(id);
+      showToast('Key revoked');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
   };
 
-  const handleDeletePolicy = async (id) => {
-    try { await deletePolicy(id); showToast('Policy deleted'); } catch (err) { showToast(err.message, 'error'); }
+  const handleDeletePolicy = async (id: string) => {
+    try {
+      await deletePolicy(id);
+      showToast('Policy deleted');
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
   };
 
-  const handleCopy = (text) => {
+  const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(text);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleLogout = async () => { await logout(); navigate('/'); };
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   const loading = keysLoading || policiesLoading;
 
   return (

@@ -12,7 +12,12 @@ const toc = [
   { id: 'redis', label: 'Redis + Lua' },
 ];
 
-function ArchBox({ label, desc }) {
+interface ArchBoxProps {
+  label: string;
+  desc?: string;
+}
+
+function ArchBox({ label, desc }: ArchBoxProps) {
   return (
     <div className="flex flex-col items-center">
       <div className="w-full max-w-[320px] border border-border bg-surface rounded-sm">

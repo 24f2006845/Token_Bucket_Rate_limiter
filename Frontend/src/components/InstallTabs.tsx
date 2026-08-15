@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import CodeBlock from './CodeBlock';
 
-export default function InstallTabs({ npm, pnpm, yarn }) {
-  const [active, setActive] = useState('npm');
+export interface InstallTabsProps {
+  npm: string;
+  pnpm: string;
+  yarn: string;
+}
+
+export default function InstallTabs({ npm, pnpm, yarn }: InstallTabsProps) {
+  const [active, setActive] = useState<'npm' | 'pnpm' | 'yarn'>('npm');
   const tabs = { npm, pnpm, yarn };
 
   return (
     <div>
       <div className="flex gap-0 border-b border-border mb-0">
-        {Object.keys(tabs).map((key) => (
+        {(Object.keys(tabs) as Array<keyof typeof tabs>).map((key) => (
           <button
             key={key}
             onClick={() => setActive(key)}

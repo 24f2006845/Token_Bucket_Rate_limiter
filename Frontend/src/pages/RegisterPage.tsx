@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -20,7 +20,7 @@ export default function RegisterPage() {
     lowercase: /[a-z]/.test(password),
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -28,7 +28,7 @@ export default function RegisterPage() {
       await register(name, email, password);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 1500);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Registration failed');
     } finally {
       setLoading(false);

@@ -1,27 +1,32 @@
 import { useState, useCallback } from 'react';
 import { adminService } from '../services/adminService';
+import { User, ApiKey } from '../types';
 
 // ─── useAdminUsers ─────────────────────────────────────────────
 
 export function useAdminUsers() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await adminService.getUsers();
-      setUsers(Array.isArray(data) ? data : (data.data || []));
-    } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      if (Array.isArray(data)) {
+        setUsers(data);
+      } else {
+        setUsers(data.data || []);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const toggleStatus = useCallback(async (userId) => {
+  const toggleStatus = useCallback(async (userId: string) => {
     await adminService.toggleUserStatus(userId);
     await fetchUsers();
   }, [fetchUsers]);
@@ -35,16 +40,26 @@ export function useAdminUsers() {
 // ─── useAdminApiKeys ───────────────────────────────────────────
 
 export function useAdminApiKeys() {
-  const [userKeys, setUserKeys] = useState({});
-  const [loadingKeys, setLoadingKeys] = useState({});
+  const [userKeys, setUserKeys] = useState<Record<string, ApiKey[]>>({});
+  const [loadingKeys, setLoadingKeys] = useState<Record<string, boolean>>({});
 
-  const fetchUserKeys = useCallback(async (userId) => {
+  const fetchUserKeys = useCallback(async (userId: string) => {
     setLoadingKeys((prev) => ({ ...prev, [userId]: true }));
     try {
       const data = await adminService.getUserApiKeys(userId);
+      let keys: ApiKey[] = [];
+      if (Array.isArray(data)) {
+        keys = data;
+      } else if (data.data) {
+        if (Array.isArray(data.data)) {
+          keys = data.data;
+        } else if ('apiKeys' in data.data && Array.isArray(data.data.apiKeys)) {
+          keys = data.data.apiKeys;
+        }
+      }
       setUserKeys((prev) => ({
         ...prev,
-        [userId]: Array.isArray(data) ? data : (data.data?.apiKeys || data.data || []),
+        [userId]: keys,
       }));
     } catch {
       setUserKeys((prev) => ({ ...prev, [userId]: [] }));
@@ -53,7 +68,7 @@ export function useAdminApiKeys() {
     }
   }, []);
 
-  const revokeKey = useCallback(async (keyId, userId) => {
+  const revokeKey = useCallback(async (keyId: string, userId?: string) => {
     await adminService.revokeApiKey(keyId);
     if (userId) {
       await fetchUserKeys(userId);

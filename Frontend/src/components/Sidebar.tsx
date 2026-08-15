@@ -1,7 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 
-const sections = [
+export interface SidebarItem {
+  href: string;
+  label: string;
+}
+
+export interface SidebarSection {
+  label: string;
+  items: SidebarItem[];
+}
+
+const sections: SidebarSection[] = [
   {
     label: 'GETTING STARTED',
     items: [
@@ -35,7 +45,12 @@ const sections = [
   },
 ];
 
-export default function Sidebar({ open, onClose }) {
+export interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const { pathname } = useLocation();
 
   const content = (
